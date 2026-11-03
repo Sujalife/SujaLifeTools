@@ -1,0 +1,21 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "toolsV1": {
+      "profiles": {
+        "$uid": { ".read": "auth != null && auth.uid === $uid" }
+      },
+      "roles": { ".read": "auth != null && root.child('toolsV1/profiles').child(auth.uid).child('active').val() === true" },
+      "directory": { ".read": "auth != null && root.child('toolsV1/profiles').child(auth.uid).child('active').val() === true" },
+      "docks": {
+        "$dock": {
+          "current": { ".read": "auth != null && root.child('toolsV1/profiles').child(auth.uid).child('active').val() === true" },
+          "history": { ".indexOn": ["createdAt", "expiresAt"] }
+        }
+      },
+      "messages": { ".indexOn": ["createdAt", "expiresAt"] },
+      "inboxVersion": { ".read": "auth != null && root.child('toolsV1/profiles').child(auth.uid).child('active').val() === true" }
+    }
+  }
+}
