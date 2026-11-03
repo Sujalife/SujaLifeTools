@@ -24,7 +24,7 @@ Use **`database.rules.json` from this version**, or its identical downloadable t
 
 1. In Firebase Console, select project **suja-life-tools**.
 2. Open **Realtime Database → Rules** for the database above.
-3. Replace the rules with the complete version 2 file and choose **Publish**.
+3. Replace the rules with the complete version 2.1 file and choose **Publish**.
 
 Alternatively, an authenticated project administrator can publish the same source with the Firebase CLI:
 
@@ -74,6 +74,18 @@ Statuses are `no_trailer`, `empty`, `loading`, and `ready`. No current record me
 
 Manual messages are stored in separate team, role, and personal channels, with rules restricting channel access. The inbox subscribes to the current person's permitted channels. Dock notices are derived from committed audit events. Personal read receipts belong to the signed-in user. There is no global read that exposes other people's private channels, and no external email, SMS, or push notification is sent.
 
+## Personal alert preferences
+
+Open **your account → Alert preferences** or **Messages → Preferences** in either app. Each person chooses any combination of **No trailer**, **Empty trailer**, **Trailer being filled**, and **Locked / ready for pickup**, plus independent switches for manual **team**, **role**, and **direct** messages. All options start enabled to preserve existing behavior; turning every option off is allowed.
+
+The choices filter that person's in-app inbox and unread count only. The dock board, current status, audit history, roles, and other people's messages are unchanged. Re-enabling an option restores matching messages still within the 72-hour window, with their existing read receipts. This feature does not send push, SMS, or email alerts.
+
+Version **2.1** rules add the private path `toolsV2/notificationPreferences/<uid>`. Only an active person can read or change their own preferences; Master cannot change someone else's choices. No account or role setup needs to be repeated. Publish the complete updated `database.rules.json` in **Realtime Database → Rules → Publish**, then reload the app to enable account syncing across devices.
+
+Until those rules are published, saving still applies immediately and is kept on that device for the signed-in UID. The dialog reports **Saved on this device** when account sync is unavailable. Unsynced device choices are retried on reload once the new rules are available. Different accounts on the same device keep separate choices; signing out clears active preferences from the screen.
+
+On phones, the dock board uses smaller spacing and illustrations while retaining every status and detail. Dock editing keeps the action bar visible while the form scrolls.
+
 ## Retention
 
 The interface shows history and messages created within the last **72 hours**. An authorized open app removes expired records shortly after opening and approximately every minute while it is active. Old records may remain physically stored until an authorized app runs again if all browsers are closed. This is the deliberate tradeoff for avoiding a scheduled server.
@@ -98,7 +110,7 @@ const platform = await createPlatform(firebaseConfig);
 const unsubscribe = platform.subscribe(state => { /* render */ });
 ```
 
-Methods include `createAccount(displayName, passphrase)`, `login`, `logout`, `updateDock`, `getDockHistory`, `sendMessage`, `markRead`, `createUser`, `saveRole`, `assignRole`, `getSnapshot`, and `destroy`.
+Methods include `createAccount(displayName, passphrase)`, `login`, `logout`, `updateDock`, `getDockHistory`, `sendMessage`, `markRead`, `saveNotificationPreferences`, `createUser`, `saveRole`, `assignRole`, `getSnapshot`, and `destroy`.
 
 The snapshot exposes `account` for a signed-in pending/setup identity, including its UID; `user` is present only after application access is active. Existing `docks`, `history`, `messages`, `users`, and `roles` collections keep the UI's shared shape. Both apps open the live workspace only. Old sample-session flags and sample records are cleared from browser storage without changing Firebase Auth sessions, themes, or view preferences.
 

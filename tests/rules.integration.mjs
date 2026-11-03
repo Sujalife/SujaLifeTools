@@ -174,6 +174,57 @@ test('team, role and personal message channels enforce audiences and sender iden
  await assertFails(set(r(lead,'messages/roles/driver/mismatch'),message({id:'mismatch',audienceType:'team'})));
 });
 
+const notificationPreferences=()=>({statuses:{no_trailer:false,empty:true,loading:false,ready:true},teamMessages:true,roleMessages:true,directMessages:true});
+
+test('active members own their notification preferences without access to another person, including Master',async()=>{
+ const viewer=db('viewer'),lead=db('lead'),master=db('master'),settings=notificationPreferences();
+ await assertSucceeds(set(r(viewer,'notificationPreferences/viewer'),settings));
+ assert.deepEqual((await assertSucceeds(get(r(viewer,'notificationPreferences/viewer')))).val(),settings);
+ await assertSucceeds(set(r(viewer,'notificationPreferences/viewer/statuses/loading'),true));
+ assert.equal((await get(r(viewer,'notificationPreferences/viewer/statuses/loading'))).val(),true);
+ for(const database of [lead,master]){
+  await assertFails(get(r(database,'notificationPreferences/viewer')));
+  await assertFails(set(r(database,'notificationPreferences/viewer'),settings));
+  await assertFails(set(r(database,'notificationPreferences/viewer'),null));
+ }
+ await assertFails(get(r(viewer,'notificationPreferences')));
+ await assertSucceeds(set(r(master,'notificationPreferences/master'),settings));
+ await assertSucceeds(set(r(viewer,'notificationPreferences/viewer'),null));
+ assert.equal((await get(r(viewer,'notificationPreferences/viewer'))).exists(),false);
+});
+
+test('notification preferences validate exact required boolean fields and reject access-related additions',async()=>{
+ const database=db('viewer'),settings=notificationPreferences();
+ for(const malformed of [
+  {...settings,teamMessages:'true'},
+  {...settings,directMessages:1},
+  {...settings,statuses:{...settings.statuses,ready:'yes'}},
+  {...settings,statuses:{...settings.statuses,unconfirmed:true}},
+  {...settings,statuses:{no_trailer:false,empty:true,ready:true}},
+  {...settings,roleId:'master'},
+  {...settings,permissions:{dockUpdate:true}},
+  {statuses:settings.statuses,teamMessages:true,roleMessages:true},
+ ])await assertFails(set(r(database,'notificationPreferences/viewer'),malformed));
+ await assertSucceeds(set(r(database,'notificationPreferences/viewer'),settings));
+ await assertFails(set(r(database,'notificationPreferences/viewer/statuses/ready'),null));
+ await assertFails(set(r(database,'notificationPreferences/viewer/roleMessages'),null));
+});
+
+test('notification preferences deny pending, unauthenticated, anonymous, and deactivated identities',async()=>{
+ const settings=notificationPreferences();
+ for(const [database,uid] of [[db('pending'),'pending'],[db(),'viewer'],[db('viewer','anonymous'),'viewer']]){
+  await assertFails(get(r(database,`notificationPreferences/${uid}`)));
+  await assertFails(set(r(database,`notificationPreferences/${uid}`),settings));
+ }
+ const viewer=db('viewer');
+ await assertSucceeds(set(r(viewer,'notificationPreferences/viewer'),settings));
+ const inactive={...profiles.viewer,active:false};
+ await assertSucceeds(update(r(db('master'),''),{'profiles/viewer':inactive,'directory/viewer':inactive}));
+ await assertFails(get(r(viewer,'notificationPreferences/viewer')));
+ await assertFails(set(r(viewer,'notificationPreferences/viewer'),settings));
+ await assertFails(set(r(viewer,'notificationPreferences/viewer'),null));
+});
+
 test('read receipts are owned, timestamped, and cannot forge another user',async()=>{
  const lead=db('lead'),viewer=db('viewer');await set(r(lead,'messages/team/message-1'),message());
  const createdAt=(await get(r(viewer,'messages/team/message-1/createdAt'))).val();

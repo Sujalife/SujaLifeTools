@@ -19,3 +19,7 @@ Keep client permissions narrowly scoped in rules. Validate signed-in actor ident
 History/messages are shown for a rolling 72 hours and expired records are removed while an authorized app is active. Preserve the latest current dock status outside that window. Do not claim scheduled physical deletion while every browser is closed.
 
 Run meaningful unit/adapter tests, database rules emulator integration checks, syntax checks, static build, and applicable browser checks before publishing changes. Never commit passwords, admin credentials, or service-account keys.
+
+Personal alert preferences are self-owned under `toolsV2/notificationPreferences/<uid>` and filter only the inbox/unread count. Preserve all dock history and current statuses, independent message channel controls, per-UID device fallback, cloud-sync state, and rejection/rollback handling. Do not expose another person's preferences or permit Master to override them.
+
+Keep phone dock cards compact and dock form actions visible while scrolling; preserve the complete desktop/mobile content and touch accessibility.

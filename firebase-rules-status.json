@@ -5,7 +5,7 @@
   "namespace": "toolsV2",
   "sourceRules": "database.rules.json",
   "sourceGenerator": "scripts/rules.mjs",
-  "sourceVersion": "2.0.0",
+  "sourceVersion": "2.1.0",
   "requiresCloudFunctions": false,
   "liveDeployment": {
     "verified": false,
@@ -27,11 +27,11 @@
     "closedAppPhysicalDeletionGuaranteed": false,
     "currentDockStatusRetained": true
   },
-  "note": "Version 2 source prepared for direct browser access. Website publication does not prove live rules publication. Existing toolsV1 data is left untouched and is not automatically migrated. The Functions-based version 1 rules do not activate this model.",
-  "sourceSha256": "34eb49b7cbdf790f1ecec1f7691d0f8b442ba4b4989b1dd75dccc3a52875bd33",
+  "note": "Version 2.1 source adds private, self-owned notification preferences to the direct browser model. Website publication does not prove live rules publication. Existing toolsV1 data is left untouched and is not automatically migrated. Existing version 2.0 operational rules remain valid, but must be updated to enable cross-device preference synchronization.",
+  "sourceSha256": "7ff549708e4e0e13c1c57c02af97147b750a0caca71eb9b5d5dcbeeaf2f572cb",
   "validation": {
-    "unitAndAdapterTests": 10,
-    "rulesEmulatorTests": 17,
+    "unitAndAdapterTests": 14,
+    "rulesEmulatorTests": 20,
     "liveProjectVerified": false
   }
 }

@@ -69,3 +69,5 @@ The Master can approve accounts, assign roles, create teammates, and disable app
 ## Artwork
 
 Original images were generated with ChatGPT's native image generator. See [ARTWORK.md](ARTWORK.md) for asset briefs. No Runway was used. Illustrated trailer scenes are decorative; live status comes from the dock board.
+
+Personal alert preferences let each person choose dock status notices and team, role, or direct messages. Choices filter only the personal inbox/unread count; all dock data and permissions remain available. The version 2.1 rules enable account sync, with UID-scoped device fallback until updated rules are published. Phone dock layouts and editing actions are compact. See [SETUP.md](SETUP.md#personal-alert-preferences).

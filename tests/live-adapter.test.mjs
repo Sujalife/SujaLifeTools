@@ -10,14 +10,14 @@ const config={apiKey:'public-test-config',projectId:'demo-suja-life-tools',appId
 const settle=async()=>{for(let i=0;i<5;i++)await new Promise(resolve=>setImmediate(resolve));};
 
 // SDK boundary fake: Auth and database transport are replaced, not platform methods.
-function fakeSdk({signedIn=true,masterPending=false}={}){
+function fakeSdk({signedIn=true,masterPending=false,denyPreferenceReads=false,denyPreferenceWrites=false,optimisticPreferenceFailure=false}={}){
  const master={uid:'master',displayName:'Sean'},apps=[],authByName=new Map(),authListeners=new Map(),dbListeners=new Set(),accounts=new Map(),deletedUsers=[],deletedApps=[],persistence=[];
  const profile={uid:'master',displayName:'Sean',roleId:masterPending?'viewer':'master',active:!masterPending,createdAt:123456};
  const role=(id,name,dockUpdate=false,messageSend=false)=>({id,name,permissions:{dockUpdate,messageSend}});
  const data={toolsV2:{config:{masterUid:'master'},profiles:signedIn?{master:profile}:{},directory:signedIn?{master:profile}:{},roles:{master:role('master','Master',true,true),viewer:role('viewer','Viewer'),lead:role('lead','Lead',true,true)}}};
  let failWrites=false,sequence=0,signupCount=0;
  const at=path=>path.split('/').filter(Boolean).reduce((value,key)=>value?.[key],data);
- const snapshot=path=>({val:()=>structuredClone(at(path)??null),exists:()=>at(path)!=null});
+ const snapshot=path=>({val:()=>path==='.info/connected'?true:path==='.info/serverTimeOffset'?0:structuredClone(at(path)??null),exists:()=>path.startsWith('.info/')||at(path)!=null});
  const resolveTime=(value,timestamp)=>value&&typeof value==='object'?(value['.sv']==='timestamp'?timestamp:Array.isArray(value)?value.map(item=>resolveTime(item,timestamp)):Object.fromEntries(Object.entries(value).map(([k,v])=>[k,resolveTime(v,timestamp)]))):value;
  function write(path,value,timestamp=Date.now()){const keys=path.split('/').filter(Boolean);let target=data;for(const key of keys.slice(0,-1))target=target[key]??={};if(value===null)delete target[keys.at(-1)];else target[keys.at(-1)]=resolveTime(value,timestamp);}
  function notifyDb(){for(const listener of [...dbListeners])queueMicrotask(()=>{if(dbListeners.has(listener))listener.callback(snapshot(listener.path));});}
@@ -36,12 +36,19 @@ function fakeSdk({signedIn=true,masterPending=false}={}){
  };
  const database={
   getDatabase:()=>({}),ref:(_database,path)=>({path}),serverTimestamp:()=>({'.sv':'timestamp'}),push:value=>({path:`${value.path}/event-${++sequence}`,key:`event-${sequence}`}),
-  onValue(value,callback){const listener={path:value.path,callback};dbListeners.add(listener);queueMicrotask(()=>{if(dbListeners.has(listener))callback(value.path==='.info/connected'?{val:()=>true}:value.path==='.info/serverTimeOffset'?{val:()=>0}:snapshot(value.path));});return()=>dbListeners.delete(listener);},
+  onValue(value,callback,onError){const listener={path:value.path,callback};dbListeners.add(listener);queueMicrotask(()=>{if(!dbListeners.has(listener))return;if(denyPreferenceReads&&value.path.startsWith('toolsV2/notificationPreferences/')){dbListeners.delete(listener);onError?.(Object.assign(Error('rules denied'),{code:'PERMISSION_DENIED'}));return;}callback(value.path==='.info/connected'?{val:()=>true}:value.path==='.info/serverTimeOffset'?{val:()=>0}:snapshot(value.path));});return()=>dbListeners.delete(listener);},
   async get(value){return snapshot(value.path);},
   async update(value,changes){if(failWrites)throw Object.assign(Error('rules denied'),{code:'PERMISSION_DENIED'});const timestamp=Date.now();for(const [key,item] of Object.entries(changes))write(`${value.path}/${key}`,item,timestamp);notifyDb();},
-  async set(value,item){if(failWrites)throw Object.assign(Error('rules denied'),{code:'PERMISSION_DENIED'});write(value.path,item);notifyDb();}
+  async set(value,item){
+   if(failWrites)throw Object.assign(Error('rules denied'),{code:'PERMISSION_DENIED'});
+   if(denyPreferenceWrites&&value.path.startsWith('toolsV2/notificationPreferences/')){
+    if(optimisticPreferenceFailure){const before=structuredClone(at(value.path)??null);write(value.path,item);notifyDb();await settle();write(value.path,before);notifyDb();await settle();}
+    throw Object.assign(Error('rules denied'),{code:'PERMISSION_DENIED'});
+   }
+   write(value.path,item);notifyDb();
+  }
  };
- return {sdk:{app,auth,database},data,apps,accounts,deletedUsers,deletedApps,persistence,authByName,set failWrites(value){failWrites=value;},get signupCount(){return signupCount;},get mainAuth(){return authByName.get('suja-life-tools');},notifyDb};
+ return {sdk:{app,auth,database},data,apps,accounts,deletedUsers,deletedApps,persistence,authByName,set failWrites(value){failWrites=value;},set denyPreferenceReads(value){denyPreferenceReads=value;},set denyPreferenceWrites(value){denyPreferenceWrites=value;},get signupCount(){return signupCount;},get mainAuth(){return authByName.get('suja-life-tools');},notifyDb};
 }
 
 test('creating a teammate uses temporary in-memory Auth and preserves the Master session',async()=>{
@@ -113,5 +120,82 @@ test('legacy sample workspace state cannot bypass live authentication and retire
   await assert.rejects(platform.login('Sean','sample-passphrase'),/did not match/);
   assert.equal(storage.has('sujaToolsExploreDemo'),false);assert.equal(storage.has('suja-life-tools.demo.v1'),false);
   assert.equal(storage.get('sujaTheme'),'dark');assert.equal(storage.get('sujaToolsViewMode'),'compact');assert.equal(storage.get(authCacheKey),'existing-auth-cache');
+ }finally{platform.destroy();storage.clear();}
+});
+
+const allAlerts=()=>({statuses:{no_trailer:true,empty:true,loading:true,ready:true},teamMessages:true,roleMessages:true,directMessages:true});
+const pickupAlerts=()=>({statuses:{no_trailer:false,empty:false,loading:false,ready:true},teamMessages:false,roleMessages:true,directMessages:false});
+
+function seedInbox(mock){
+ const now=Date.now();
+ const events=Object.fromEntries(['no_trailer','empty','loading','ready'].map((status,index)=>[`change-${index}`,{id:`change-${index}`,dockId:'16',status,createdAt:now-5000+index*1000,actorUid:'master',actorName:'Sean',actorRole:'Master',trailerId:status==='no_trailer'?'':'SJ-21'}]));
+ mock.data.toolsV2.docks={'16':{current:{dockId:'16',status:'ready',revision:4,trailerId:'SJ-21'},history:events}};
+ const manual=(id,audienceType)=>({id,audienceType,createdAt:now-1000,body:`${audienceType} message`,senderUid:'master',senderName:'Sean',system:false});
+ mock.data.toolsV2.messages={team:{'manual-team':manual('manual-team','team')},roles:{master:{'manual-role':manual('manual-role','role')}},users:{master:{'manual-direct':manual('manual-direct','user')}}};
+}
+
+test('personal alert choices filter selected dock statuses and manual channels without altering history or receipts',async()=>{
+ storage.clear();const mock=fakeSdk();seedInbox(mock);const platform=await createPlatform(config,{sdk:mock.sdk});
+ try{
+  await settle();assert.equal(platform.getSnapshot().messages.length,7);assert.deepEqual(platform.getSnapshot().notificationPreferences,allAlerts());
+  assert.deepEqual(await platform.saveNotificationPreferences(pickupAlerts()),{synced:true});await settle();
+  let state=platform.getSnapshot();
+  assert.deepEqual(state.messages.map(message=>message.id).sort(),['dock_16_change-3','manual-role']);
+  assert.equal(state.history['16'].length,4);assert.equal(state.docks['16'].status,'ready');
+  assert.deepEqual(mock.data.toolsV2.notificationPreferences.master,pickupAlerts());
+  assert.equal(state.notificationPreferencesSync,'synced');
+  await platform.markRead('dock_16_change-3');await settle();
+  assert.equal(platform.getSnapshot().messages.find(message=>message.id==='dock_16_change-3').read,true);
+  const noAlerts=allAlerts();for(const key of Object.keys(noAlerts.statuses))noAlerts.statuses[key]=false;noAlerts.teamMessages=false;noAlerts.roleMessages=false;noAlerts.directMessages=false;
+  await platform.saveNotificationPreferences(noAlerts);await settle();assert.deepEqual(platform.getSnapshot().messages,[]);
+  await platform.saveNotificationPreferences(allAlerts());await settle();state=platform.getSnapshot();
+  assert.equal(state.messages.length,7);assert.equal(state.messages.find(message=>message.id==='dock_16_change-3').read,true);assert.equal(state.history['16'].length,4);
+ }finally{platform.destroy();storage.clear();}
+});
+
+test('account alert preferences preserve false values and follow realtime changes while invalid saves are rejected',async()=>{
+ storage.clear();const mock=fakeSdk();seedInbox(mock);mock.data.toolsV2.notificationPreferences={master:pickupAlerts()};const platform=await createPlatform(config,{sdk:mock.sdk});
+ try{
+  await settle();assert.deepEqual(platform.getSnapshot().notificationPreferences,pickupAlerts());
+  assert.equal(platform.getSnapshot().notificationPreferencesSync,'synced');
+  const emptyOnly=pickupAlerts();emptyOnly.statuses.ready=false;emptyOnly.statuses.empty=true;emptyOnly.roleMessages=false;
+  mock.data.toolsV2.notificationPreferences.master=emptyOnly;mock.notifyDb();await settle();
+  assert.deepEqual(platform.getSnapshot().notificationPreferences,emptyOnly);
+  assert.deepEqual(platform.getSnapshot().messages.map(message=>message.id),['dock_16_change-1']);
+  const missing=allAlerts();delete missing.statuses.ready;
+  await assert.rejects(platform.saveNotificationPreferences(missing));
+  await assert.rejects(platform.saveNotificationPreferences({...allAlerts(),teamMessages:'false'}));
+  await assert.rejects(platform.saveNotificationPreferences({...allAlerts(),roleId:'master'}));
+  assert.deepEqual(mock.data.toolsV2.notificationPreferences.master,emptyOnly);assert.equal(platform.getSnapshot().user.roleId,'master');
+ }finally{platform.destroy();storage.clear();}
+});
+
+test('unavailable account sync keeps alert settings on this device per UID without breaking the workspace or leaking on logout',async()=>{
+ storage.clear();const mock=fakeSdk({denyPreferenceReads:true,denyPreferenceWrites:true});seedInbox(mock);let platform=await createPlatform(config,{sdk:mock.sdk});
+ try{
+  await settle();assert.equal(platform.getSnapshot().user.uid,'master');assert.equal(platform.getSnapshot().error,null);assert.equal(platform.getSnapshot().notificationPreferencesSync,'device');
+  const teammate=await platform.createUser({displayName:'Other Operator',passphrase:'private-test-passphrase',roleId:'lead'});await settle();
+  assert.deepEqual(await platform.saveNotificationPreferences(pickupAlerts()),{synced:false});await settle();
+  assert.deepEqual(platform.getSnapshot().messages.map(message=>message.id).sort(),['dock_16_change-3','manual-role']);assert.equal(platform.getSnapshot().error,null);
+  assert.equal(mock.data.toolsV2.notificationPreferences?.master,undefined);
+  platform.destroy();platform=await createPlatform(config,{sdk:mock.sdk});await settle();
+  assert.deepEqual(platform.getSnapshot().notificationPreferences,pickupAlerts());assert.equal(platform.getSnapshot().user.uid,'master');
+  await platform.logout();await settle();assert.deepEqual(platform.getSnapshot().messages,[]);assert.deepEqual(platform.getSnapshot().notificationPreferences,allAlerts());
+  await platform.login('Other Operator','private-test-passphrase');await settle();
+  assert.equal(platform.getSnapshot().user.uid,teammate.uid);assert.deepEqual(platform.getSnapshot().notificationPreferences,allAlerts());assert.equal(platform.getSnapshot().error,null);
+ }finally{platform.destroy();storage.clear();}
+});
+
+test('a denied optimistic preferences write cannot replace the chosen device settings with the server rollback',async()=>{
+ storage.clear();const mock=fakeSdk({denyPreferenceWrites:true,optimisticPreferenceFailure:true});seedInbox(mock);mock.data.toolsV2.notificationPreferences={master:allAlerts()};let platform=await createPlatform(config,{sdk:mock.sdk});
+ try{
+  await settle();assert.equal(platform.getSnapshot().notificationPreferencesSync,'synced');
+  assert.deepEqual(await platform.saveNotificationPreferences(pickupAlerts()),{synced:false});await settle();
+  const state=platform.getSnapshot();
+  assert.deepEqual(mock.data.toolsV2.notificationPreferences.master,allAlerts());
+  assert.deepEqual(state.notificationPreferences,pickupAlerts());assert.equal(state.notificationPreferencesSync,'device');assert.equal(state.error,null);
+  assert.deepEqual(state.messages.map(message=>message.id).sort(),['dock_16_change-3','manual-role']);
+  platform.destroy();mock.denyPreferenceReads=true;platform=await createPlatform(config,{sdk:mock.sdk});await settle();
+  assert.deepEqual(platform.getSnapshot().notificationPreferences,pickupAlerts());assert.equal(platform.getSnapshot().notificationPreferencesSync,'device');
  }finally{platform.destroy();storage.clear();}
 });

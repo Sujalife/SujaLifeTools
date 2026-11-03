@@ -310,6 +310,43 @@
           }
         }
       },
+      "notificationPreferences": {
+        "$uid": {
+          ".read": "((auth != null && auth.token.firebase.sign_in_provider === 'password' && root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true)) && (auth.uid === $uid)",
+          ".write": "((auth != null && auth.token.firebase.sign_in_provider === 'password' && root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true)) && (auth.uid === $uid) && ($uid.matches(/^[-A-Za-z0-9_]{1,128}$/))",
+          ".validate": "(newData.hasChildren([\"statuses\",\"teamMessages\",\"roleMessages\",\"directMessages\"]))",
+          "statuses": {
+            ".validate": "(newData.hasChildren([\"no_trailer\",\"empty\",\"loading\",\"ready\"]))",
+            "no_trailer": {
+              ".validate": "newData.isBoolean()"
+            },
+            "empty": {
+              ".validate": "newData.isBoolean()"
+            },
+            "loading": {
+              ".validate": "newData.isBoolean()"
+            },
+            "ready": {
+              ".validate": "newData.isBoolean()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "teamMessages": {
+            ".validate": "newData.isBoolean()"
+          },
+          "roleMessages": {
+            ".validate": "newData.isBoolean()"
+          },
+          "directMessages": {
+            ".validate": "newData.isBoolean()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
       "readReceipts": {
         "$uid": {
           ".read": "((auth != null && auth.token.firebase.sign_in_provider === 'password' && root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true)) && (auth.uid === $uid)",

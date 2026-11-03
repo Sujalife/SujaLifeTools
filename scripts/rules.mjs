@@ -143,6 +143,17 @@ function messageRules(type,idExpression){return {
   },type==='role'?`${ns}.child('roles').child($role).exists()`:type==='user'?`${ns}.child('profiles').child($recipient).child('active').val() === true`:'')
 };}
 
+function notificationPreferenceRules(){return {
+  '.read':and(active,'auth.uid === $uid'),
+  // Deleting one's own whole record resets preferences; required children cannot be deleted individually.
+  '.write':and(active,'auth.uid === $uid',"$uid.matches(/^[-A-Za-z0-9_]{1,128}$/)"),
+  ...record({
+    statuses:"newData.hasChildren(['no_trailer','empty','loading','ready'])",
+    teamMessages:boolean,roleMessages:boolean,directMessages:boolean
+  }),
+  statuses:record({no_trailer:boolean,empty:boolean,loading:boolean,ready:boolean})
+};}
+
 export function generateRules(){return {rules:{'.read':false,'.write':false,toolsV2:{
   config:{'.read':password,'.write':false},
   profiles:{'$uid':profileRules('directory')},
@@ -154,6 +165,7 @@ export function generateRules(){return {rules:{'.read':false,'.write':false,tool
     roles:{'$role':{'.read':and(active,`${profile}.child('roleId').val() === $role`),'.indexOn':['createdAt'],'$message':messageRules('role','$role')}},
     users:{'$recipient':{'.read':and(active,'auth.uid === $recipient'),'.indexOn':['createdAt'],'$message':messageRules('user','$recipient')}}
   },
+  notificationPreferences:{'$uid':notificationPreferenceRules()},
   readReceipts:{'$uid':{
     '.read':and(active,'auth.uid === $uid'),'.indexOn':['createdAt'],
     '$message':{

@@ -1,4 +1,5 @@
 /* Shared by Suja Life Tools and Suja Dock Status. No passphrase is persisted here. */
+import {normalizeNotificationPreferences,validNotificationPreferences,messageIsEnabled} from './notification-preferences.js';
 const TTL=72*60*60*1000;
 const DOCKS=['16','17','18','19'];
 const ALL_PERMISSIONS=['dock.update','message.send','users.manage','roles.manage'];
@@ -23,13 +24,13 @@ export async function createPlatform(config={},options={}) {
   } catch {}
   const listeners=new Set();
   let clockOffset=0;
-  const state={mode:'setup',connected:false,user:null,account:null,docks:{},history:{},messages:[],users:{},roles:clone(ROLES),error:null};
+  const state={mode:'setup',connected:false,user:null,account:null,docks:{},history:{},messages:[],users:{},roles:clone(ROLES),notificationPreferences:normalizeNotificationPreferences(),notificationPreferencesSync:'loading',error:null};
   const emit=()=>{state.messages=cutoffEvents(state.messages,Date.now()+clockOffset);for(const id of DOCKS)state.history[id]=cutoffEvents(state.history[id],Date.now()+clockOffset);for(const listener of listeners)listener(clone(state));};
   const api={subscribe(listener){listeners.add(listener);listener(clone(state));return()=>listeners.delete(listener);},getSnapshot:()=>clone(state)};
   let retentionMaintenance=null;const ticker=setInterval(()=>{retentionMaintenance?.();emit();},30000);api.destroy=()=>{clearInterval(ticker);listeners.clear();};
   if(!config?.apiKey||!config?.projectId||!config?.appId){
     const unavailable=async()=>{throw Error('Live accounts are awaiting Firebase setup.');};
-    for(const method of ['login','createAccount','updateDock','sendMessage','createUser','saveRole','assignRole','markRead','getDockHistory'])api[method]=unavailable;
+    for(const method of ['login','createAccount','updateDock','sendMessage','createUser','saveRole','assignRole','markRead','getDockHistory','saveNotificationPreferences'])api[method]=unavailable;
     api.logout=async()=>{};emit();return api;
   }
   state.mode='live';
@@ -48,11 +49,15 @@ export async function createPlatform(config={},options={}) {
   } catch {
     state.error='Firebase sign-in could not load. Check your connection and reload the page.';
     const unavailable=async()=>{throw Error(state.error);};
-    for(const method of ['login','createAccount','updateDock','sendMessage','createUser','saveRole','assignRole','markRead','getDockHistory'])api[method]=unavailable;
+    for(const method of ['login','createAccount','updateDock','sendMessage','createUser','saveRole','assignRole','markRead','getDockHistory','saveNotificationPreferences'])api[method]=unavailable;
     api.logout=async()=>{};emit();return api;
   }
   let baseSubscriptions=[],activeSubscriptions=[],roleMessageOff=null,generation=0,currentAuthUser=null,profile=null,pinnedMaster=null,pinLoaded=false,profileLoaded=false,pendingLoginName=null,bootstrapping=false,creatingAccount=false,serverOffset=0,activeEpoch=0,activeStarted=false,roleChannel=null,lastCleanup=0;
   let rawHistory={},rawMessages={team:{},role:{},user:{}},receipts={};
+  let preferenceDirtyUid=null,preferenceSaveSequence=0;
+  const preferenceCacheKey=uid=>`sujaTools.alertPreferences.${uid}`;
+  function readPreferenceCache(uid){try{const value=JSON.parse(globalThis.localStorage?.getItem(preferenceCacheKey(uid))||'null');return validNotificationPreferences(value?.preferences)?value:null;}catch{return null;}}
+  function cachePreferences(uid,preferences,needsSync){try{globalThis.localStorage?.setItem(preferenceCacheKey(uid),JSON.stringify({preferences,needsSync}));}catch{}}
   const serverNow=()=>Date.now()+serverOffset;
   const pathRef=path=>dbModule.ref(db,path?`${NAMESPACE}/${path}`:NAMESPACE);
   const permissionDenied=error=>/permission|denied/i.test(`${error?.code||''} ${error?.message||''}`);
@@ -77,9 +82,10 @@ export async function createPlatform(config={},options={}) {
   const toRole=role=>({id:role.id,name:role.name,permissions:{dockUpdate:role.permissions?.includes('dock.update')||false,messageSend:role.permissions?.includes('message.send')||false}});
   function clearActive() {
     ++activeEpoch;
+    preferenceDirtyUid=null;++preferenceSaveSequence;
     activeSubscriptions.forEach(off=>off());activeSubscriptions=[];roleMessageOff?.();roleMessageOff=null;roleChannel=null;activeStarted=false;
     rawHistory={};rawMessages={team:{},role:{},user:{}};receipts={};
-    Object.assign(state,{user:null,docks:{},history:{},messages:[],users:{},roles:clone(ROLES)});
+    Object.assign(state,{user:null,docks:{},history:{},messages:[],users:{},roles:clone(ROLES),notificationPreferences:normalizeNotificationPreferences(),notificationPreferencesSync:'loading'});
   }
   function clearAll() {baseSubscriptions.forEach(off=>off());baseSubscriptions=[];clearActive();profile=null;profileLoaded=false;provisioningPending=false;lastCleanup=0;pinLoaded=false;pinnedMaster=null;bootstrapping=false;state.account=null;state.connected=false;state.error=null;}
   function refreshIdentity() {
@@ -97,16 +103,17 @@ export async function createPlatform(config={},options={}) {
     const labels={no_trailer:'No trailer',empty:'Empty trailer',loading:'Loading',ready:'Locked · ready for pickup'};
     for(const id of DOCKS){
       state.history[id]=cutoffEvents(rawHistory[id],now);
-      for(const event of state.history[id])all.set(`dock_${id}_${event.id}`,{id:`dock_${id}_${event.id}`,body:`Dock ${id}: ${labels[event.status]||event.status}${event.trailerId?` · Trailer ${event.trailerId}`:''}${event.note?` — ${event.note}`:''}`,senderUid:event.actorUid,senderName:event.actorName,senderRole:event.actorRole,createdAt:event.createdAt,system:true,dockId:id,audienceType:'team',audienceId:'team'});
+      for(const event of state.history[id])all.set(`dock_${id}_${event.id}`,{id:`dock_${id}_${event.id}`,body:`Dock ${id}: ${labels[event.status]||event.status}${event.trailerId?` · Trailer ${event.trailerId}`:''}${event.note?` — ${event.note}`:''}`,senderUid:event.actorUid,senderName:event.actorName,senderRole:event.actorRole,createdAt:event.createdAt,system:true,dockId:id,dockStatus:event.status,audienceType:'team',audienceId:'team'});
     }
-    state.messages=cutoffEvents([...all.values()],now).map(message=>({...message,read:!!receipts[message.id]}));
+    state.messages=cutoffEvents([...all.values()],now).filter(message=>messageIsEnabled(message,state.notificationPreferences)).map(message=>({...message,read:!!receipts[message.id]}));
   }
-  function watch(path,callback,bucket=baseSubscriptions,{optional=false}={}) {
+  function watch(path,callback,bucket=baseSubscriptions,{optional=false,onError}={}) {
     const token=generation,epoch=activeEpoch,isActive=bucket===activeSubscriptions;
     const ref=path.startsWith('.info/')?dbModule.ref(db,path):pathRef(path);
     const off=dbModule.onValue(ref,snapshot=>{if(token===generation&&(!isActive||epoch===activeEpoch))callback(snapshot.val());},error=>{
       if(token!==generation||(isActive&&epoch!==activeEpoch))return;
       if(!optional)state.error=permissionDenied(error)&&!state.user?'Publish the version 2 database rules to finish workspace setup.':friendlyError(error);
+      onError?.(error);
       if(path==='config/masterUid'){pinLoaded=true;pinnedMaster=null;refreshIdentity();}
       emit();
     });bucket.push(off);return off;
@@ -149,6 +156,20 @@ export async function createPlatform(config={},options={}) {
     if(!state.user){if(activeStarted)clearActive();refreshIdentity();return;}
     if(activeStarted){switchRoleChannel(state.user.roleId);return;}
     activeStarted=true;const person=currentAuthUser;
+    const cachedPreferences=readPreferenceCache(person.uid);let preferencesLoaded=false;
+    preferenceDirtyUid=cachedPreferences?.needsSync?person.uid:null;
+    state.notificationPreferences=normalizeNotificationPreferences(cachedPreferences?.preferences);
+    state.notificationPreferencesSync='loading';
+    watch(`notificationPreferences/${person.uid}`,value=>{
+      if(!preferencesLoaded&&cachedPreferences?.needsSync){
+        preferencesLoaded=true;state.notificationPreferences=normalizeNotificationPreferences(cachedPreferences.preferences);state.notificationPreferencesSync='device';rebuildMessages();emit();
+        if(state.connected)void api.saveNotificationPreferences(state.notificationPreferences);
+        return;
+      }
+      // Local SDK echoes and rejected-write rollbacks cannot replace device choices.
+      if(preferenceDirtyUid===person.uid)return;
+      preferencesLoaded=true;state.notificationPreferences=normalizeNotificationPreferences(value);state.notificationPreferencesSync='synced';cachePreferences(person.uid,state.notificationPreferences,false);rebuildMessages();emit();
+    },activeSubscriptions,{optional:true,onError:()=>{preferencesLoaded=true;state.notificationPreferencesSync='device';rebuildMessages();}});
     watch('roles',value=>{state.roles=Object.fromEntries(Object.entries(value||{}).map(([id,role])=>[id,fromRole(role,id)]));refreshIdentity();emit();},activeSubscriptions);
     watch('directory',value=>{state.users=value||{};emit();},activeSubscriptions);
     for(const id of DOCKS){
@@ -288,8 +309,30 @@ export async function createPlatform(config={},options={}) {
     const person=requireActive(),message=state.messages.find(item=>item.id===id);if(!message)throw Error('Message is no longer available.');
     try{await dbModule.set(pathRef(`readReceipts/${person.uid}/${id}`),{createdAt:message.createdAt,readAt:dbModule.serverTimestamp()});}catch(error){throw Error(friendlyError(error));}
   };
+  api.saveNotificationPreferences=async preferences=>{
+    const person=requireActive(),token=generation,epoch=activeEpoch;
+    if(!validNotificationPreferences(preferences))throw Error('Choose an on or off setting for every alert and message type.');
+    const next=normalizeNotificationPreferences(preferences),saveSequence=++preferenceSaveSequence;
+    preferenceDirtyUid=person.uid;
+    cachePreferences(person.uid,next,true);state.notificationPreferences=next;state.notificationPreferencesSync='device';rebuildMessages();emit();
+    if(!state.connected)return {synced:false};
+    try{
+      await dbModule.set(pathRef(`notificationPreferences/${person.uid}`),next);
+      if(token===generation&&epoch===activeEpoch&&saveSequence===preferenceSaveSequence){cachePreferences(person.uid,next,false);preferenceDirtyUid=null;state.notificationPreferences=next;state.notificationPreferencesSync='synced';rebuildMessages();emit();}
+      return {synced:true};
+    }catch{
+      // A workspace with older rules can still use this account's device choices.
+      return {synced:false};
+    }
+  };
   api.getDockHistory=async id=>{
     requireActive();if(!DOCKS.includes(String(id)))throw Error('Choose a valid dock.');return cutoffEvents(rawHistory[String(id)],serverNow());
   };
-  const oldDestroy=api.destroy;api.destroy=()=>{++generation;clearAll();currentAuthUser=null;oldDestroy();stopAuth();};emit();return api;
+  const onPreferenceStorage=event=>{
+    const uid=state.user?.uid;if(!uid||event.key!==preferenceCacheKey(uid))return;
+    const cached=readPreferenceCache(uid);if(!cached)return;
+    ++preferenceSaveSequence;preferenceDirtyUid=cached.needsSync?uid:null;state.notificationPreferences=normalizeNotificationPreferences(cached.preferences);state.notificationPreferencesSync=cached.needsSync?'device':'synced';rebuildMessages();emit();
+  };
+  globalThis.window?.addEventListener('storage',onPreferenceStorage);
+  const oldDestroy=api.destroy;api.destroy=()=>{++generation;clearAll();currentAuthUser=null;globalThis.window?.removeEventListener('storage',onPreferenceStorage);oldDestroy();stopAuth();};emit();return api;
 }
