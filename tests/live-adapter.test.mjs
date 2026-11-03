@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createPlatform} from '../dist/shared/platform.js';
+import {createPlatform,hasPermission} from '../dist/shared/platform.js';
+import {publicRoleName} from '../dist/shared/profile-display.js';
 
 globalThis.window={addEventListener(){},removeEventListener(){}};
 const storage=new Map();
@@ -47,6 +48,12 @@ test('creating a teammate uses temporary in-memory Auth and preserves the Master
  const mock=fakeSdk(),platform=await createPlatform(config,{sdk:mock.sdk});
  try{
   await settle();assert.equal(platform.getSnapshot().user.uid,'master');const primary=mock.mainAuth.currentUser;
+  const owner=platform.getSnapshot().user;
+  assert.equal(publicRoleName(owner.roleId,owner.roleName),'NetSuite Operator');
+  assert.equal(owner.roleId,'master');assert.equal(owner.roleName,'Master');
+  assert.ok(hasPermission(owner,'users.manage'));assert.ok(hasPermission(owner,'roles.manage'));
+  assert.equal(publicRoleName('lead','Lead'),'Lead');
+  assert.equal(publicRoleName('','Master'),'NetSuite Operator');
   const created=await platform.createUser({displayName:'New Driver',passphrase:'private-test-passphrase',roleId:'lead'});await settle();
   assert.equal(mock.mainAuth.currentUser,primary);assert.equal(platform.getSnapshot().user.uid,'master');
   assert.equal(mock.data.toolsV2.profiles[created.uid].active,true);assert.equal(mock.data.toolsV2.profiles[created.uid].roleId,'lead');

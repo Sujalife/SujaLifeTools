@@ -2,6 +2,8 @@
 
 Use ChatGPT native image generation for new artwork. Do not use Runway without explicit user approval.
 
+The configured Master account displays the job title NetSuite Operator. Keep this UI-only: stored role IDs/names, audit values, and permissions stay unchanged.
+
 Preserve the shared Suja header, theme storage key `sujaTheme`, display-name/password login, and Master-only account/role administration. Keep the hub and dock icon/card versus list preferences independent. Do not copy the legacy games' trust-based anonymous nickname lookup as password authentication.
 
 The user explicitly chose the direct realtime model: GitHub Pages + Firebase Authentication + Realtime Database security rules, with no Cloud Functions or Blaze requirement for core operation. Do not reintroduce a scheduled server or paid-service dependency without discussing the concrete need with the user.

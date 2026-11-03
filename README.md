@@ -11,7 +11,7 @@ The apps use the same basic hosting and realtime model as the Game Center: **Git
 
 - One display-name and password/passphrase login across tools on the same origin.
 - Account creation with pending access until the Master approves a team role.
-- A protected Master account that creates people, custom roles, and role assignments.
+- A protected Master account that creates people, custom roles, and role assignments; its displayed job title is NetSuite Operator.
 - Supervisor, Lead, Forklift Driver, NetSuite Operator, and Viewer starter roles.
 - Four visual dock states: No trailer, Empty trailer, Loading, Locked / ready.
 - Optional trailer number, update note, and physical lock confirmation when marking ready.
