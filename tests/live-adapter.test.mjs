@@ -18,8 +18,8 @@ function fakeSdk({signedIn=true,masterPending=false}={}){
  let failWrites=false,sequence=0,signupCount=0;
  const at=path=>path.split('/').filter(Boolean).reduce((value,key)=>value?.[key],data);
  const snapshot=path=>({val:()=>structuredClone(at(path)??null),exists:()=>at(path)!=null});
- const resolveTime=value=>value&&typeof value==='object'?(value['.sv']==='timestamp'?Date.now():Array.isArray(value)?value.map(resolveTime):Object.fromEntries(Object.entries(value).map(([k,v])=>[k,resolveTime(v)]))):value;
- function write(path,value){const keys=path.split('/').filter(Boolean);let target=data;for(const key of keys.slice(0,-1))target=target[key]??={};if(value===null)delete target[keys.at(-1)];else target[keys.at(-1)]=resolveTime(value);}
+ const resolveTime=(value,timestamp)=>value&&typeof value==='object'?(value['.sv']==='timestamp'?timestamp:Array.isArray(value)?value.map(item=>resolveTime(item,timestamp)):Object.fromEntries(Object.entries(value).map(([k,v])=>[k,resolveTime(v,timestamp)]))):value;
+ function write(path,value,timestamp=Date.now()){const keys=path.split('/').filter(Boolean);let target=data;for(const key of keys.slice(0,-1))target=target[key]??={};if(value===null)delete target[keys.at(-1)];else target[keys.at(-1)]=resolveTime(value,timestamp);}
  function notifyDb(){for(const listener of [...dbListeners])queueMicrotask(()=>{if(dbListeners.has(listener))listener.callback(snapshot(listener.path));});}
  function notifyAuth(auth){for(const callback of authListeners.get(auth)||[])queueMicrotask(()=>callback(auth.currentUser));}
  const app={getApps:()=>apps,initializeApp:(_config,name)=>{const value={name};apps.push(value);return value;},deleteApp:async value=>{deletedApps.push(value.name);apps.splice(apps.indexOf(value),1);}};
@@ -38,7 +38,7 @@ function fakeSdk({signedIn=true,masterPending=false}={}){
   getDatabase:()=>({}),ref:(_database,path)=>({path}),serverTimestamp:()=>({'.sv':'timestamp'}),push:value=>({path:`${value.path}/event-${++sequence}`,key:`event-${sequence}`}),
   onValue(value,callback){const listener={path:value.path,callback};dbListeners.add(listener);queueMicrotask(()=>{if(dbListeners.has(listener))callback(value.path==='.info/connected'?{val:()=>true}:value.path==='.info/serverTimeOffset'?{val:()=>0}:snapshot(value.path));});return()=>dbListeners.delete(listener);},
   async get(value){return snapshot(value.path);},
-  async update(value,changes){if(failWrites)throw Object.assign(Error('rules denied'),{code:'PERMISSION_DENIED'});for(const [key,item] of Object.entries(changes))write(`${value.path}/${key}`,item);notifyDb();},
+  async update(value,changes){if(failWrites)throw Object.assign(Error('rules denied'),{code:'PERMISSION_DENIED'});const timestamp=Date.now();for(const [key,item] of Object.entries(changes))write(`${value.path}/${key}`,item,timestamp);notifyDb();},
   async set(value,item){if(failWrites)throw Object.assign(Error('rules denied'),{code:'PERMISSION_DENIED'});write(value.path,item);notifyDb();}
  };
  return {sdk:{app,auth,database},data,apps,accounts,deletedUsers,deletedApps,persistence,authByName,set failWrites(value){failWrites=value;},get signupCount(){return signupCount;},get mainAuth(){return authByName.get('suja-life-tools');},notifyDb};
