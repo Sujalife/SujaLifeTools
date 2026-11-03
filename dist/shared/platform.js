@@ -124,8 +124,20 @@ export async function createPlatform(config={},options={}) {
   });
   api.login=async(displayName,passphrase)=>{
     let credential;
-    try{pendingLoginName=validateName(displayName);state.error=null;credential=await authModule.signInWithEmailAndPassword(auth,await displayNameLoginAddress(displayName),passphrase);}
-    catch{throw Error('Display name or passphrase did not match an active account.');}
+    try {
+      // A previous Auth sign-in may have succeeded while profile/bootstrap setup
+      // failed. Signing in the same UID again need not emit an Auth-state change.
+      // Clear that unprovisioned session so this attempt reloads its profile.
+      if(auth.currentUser&&!state.user)await api.logout();
+      pendingLoginName=validateName(displayName);state.error=null;
+      credential=await authModule.signInWithEmailAndPassword(auth,await displayNameLoginAddress(displayName),passphrase);
+    } catch(error) {
+      if(['auth/operation-not-allowed','auth/configuration-not-found'].includes(error?.code))throw Error('Sign-in has not been enabled for this workspace. Contact your master administrator.');
+      if(error?.code==='auth/network-request-failed')throw Error('Sign-in could not connect. Check your connection and try again.');
+      if(['auth/invalid-api-key','auth/app-not-authorized','auth/unauthorized-domain'].includes(error?.code))throw Error('This workspace’s sign-in configuration needs attention. Contact your master administrator.');
+      if(error?.code==='auth/too-many-requests')throw Error('Too many sign-in attempts. Please wait a moment and try again.');
+      throw Error('Display name or passphrase did not match an active account.');
+    }
     // Resolve only after the provisioned profile/bootstrap has loaded, not just Firebase Auth.
     return new Promise((resolve,reject)=>{
       let stop=null,finished=false;

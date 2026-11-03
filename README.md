@@ -19,9 +19,9 @@ The interface follows the existing Suja Game Center: shared header, app launch c
 
 ## Current activation state
 
-The hosted first version is an **interactive preview**. **Live Firebase is not configured or deployed.** Choose **Explore demo** for browser-only sample data. The demo is clearly labeled and never writes to Firebase. Live mode starts with unconfirmed docks; it does not seed production status from sample data.
+The hosted first version is an **interactive preview**. **The Firebase web app configuration is included; live backend activation remains pending.** Choose **Explore demo** for browser-only sample data. The demo is clearly labeled and never writes to Firebase. Live mode starts with unconfirmed docks; it does not seed production status from sample data.
 
-The supplied database URL is configured. The public Firebase web app `apiKey` and `appId` are still blank in `dist/shared/config.js`. Authentication, Cloud Functions, security rules, and the first Master UID must be set up as described in [SETUP.md](SETUP.md). No admin key or passphrase belongs in the repository.
+The supplied public Firebase web app configuration is included in `dist/shared/config.js`. Analytics is not initialized. Authentication, Cloud Functions, security rules, and the first Master UID must still be set up as described in [SETUP.md](SETUP.md). No admin key or passphrase belongs in the repository.
 
 ## Work on this project
 

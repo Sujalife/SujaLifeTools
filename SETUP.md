@@ -4,11 +4,11 @@ The interface and clearly labeled browser demo can be reviewed before Firebase i
 
 ## Required project information
 
-The supplied database URL is already configured:
+The supplied public Firebase web app configuration has been added to both frontends, including the API key, app ID, and database URL:
 
 `https://suja-life-tools-default-rtdb.firebaseio.com`
 
-From **Firebase Console → Project settings → Your apps**, register a Web app if needed and copy its public `firebaseConfig` object. The live client requires its actual `apiKey`, `projectId`, `appId`, `authDomain`, and `databaseURL`. Do not send a service-account key, account password, private key, or administrator credentials. Put the same public config in both apps' `shared/config.js`.
+The public `firebaseConfig` supplied for the Web app is now included in both apps' `dist/shared/config.js`. The optional analytics measurement ID is retained as configuration; Analytics collection is not initialized. This configuration identifies the project but does not grant administrative access or prove that Authentication, backend functions, rules, or the scheduler are activated. Never commit a service-account key, account password, or private key.
 
 The project ID is expected to be `suja-life-tools`; verify it against Project settings before deployment.
 
@@ -43,8 +43,7 @@ cd functions
 npm install
 cd ..
 npx firebase-tools login
-npx firebase-tools use suja-life-tools
-npx firebase-tools deploy --only functions,database
+npx firebase-tools deploy --project suja-life-tools --only functions,database
 ```
 
 The CLI prompts for `SUJA_MASTER_UID` if no local parameter value exists. Keep any CLI-generated `.env.<project>` files untracked. Never commit a service-account credential. Deploy this shared backend from **one authoritative repository**; both apps call the same functions.
