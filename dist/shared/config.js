@@ -12,5 +12,4 @@ export const firebaseConfig = {
 export const appLinks = {
   hub: 'https://sujalife.github.io/SujaLifeTools/',
   dock: 'https://sujalife.github.io/SujaDockStatus/',
-  functionsRegion: 'us-central1'
 };

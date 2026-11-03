@@ -1,13 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createPlatform,displayNameLoginAddress} from '../dist/shared/platform.js';
-import {loginEmail} from '../functions/domain.mjs';
+import {createHash} from 'node:crypto';
 const storage=new Map();
 globalThis.localStorage={getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value)};
 globalThis.window={addEventListener(){},removeEventListener(){}};
 
-test('browser and backend use identical display name login address',async()=>{
-  for(const name of ['Sean','Sean   Sommer','  Ｓｅａｎ  ','NetSuite Operator 1'])assert.equal(await displayNameLoginAddress(name),loginEmail(name));
+test('display names map consistently to unique password login addresses',async()=>{
+  assert.equal(await displayNameLoginAddress('  Ｓｅａｎ  '),await displayNameLoginAddress('sean'));
+  assert.equal(await displayNameLoginAddress('Sean   Sommer'),await displayNameLoginAddress('Sean Sommer'));
+  assert.notEqual(await displayNameLoginAddress('Alex'),await displayNameLoginAddress('Alex Rivera'));
+  const expected=createHash('sha256').update('netsuite operator 1').digest('hex')+'@users.suja-life-tools.invalid';
+  assert.equal(await displayNameLoginAddress('NetSuite Operator 1'),expected);
 });
 test('missing Firebase config provides signed-out setup, without live sample data',async()=>{
   const platform=await createPlatform({});

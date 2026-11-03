@@ -21,7 +21,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm test && npm run check && npm run build
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --ignore-scripts
+      - run: npm test && npm run check && npm run build && npm run test:rules
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

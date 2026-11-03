@@ -7,10 +7,44 @@ const out=resolve(root,'..',target==='hub'?'github-SujaLifeTools':'github-SujaDo
 await rm(out,{recursive:true,force:true});await mkdir(out,{recursive:true});
 for(const name of ['dist','scripts','package.json','.gitignore','AGENTS.md','ARTWORK.md','.github'])await cp(resolve(root,name),resolve(out,name),{recursive:true});
 if(target==='hub'){
- for(const name of ['functions','tests','database.rules.json','firebase.json','firebase-rules-status.json','SETUP.md','README.md'])await cp(resolve(root,name),resolve(out,name),{recursive:true});
+ for(const name of ['package-lock.json','tests','database.rules.json','firebase.json','firebase-rules-status.json','SETUP.md','README.md'])await cp(resolve(root,name),resolve(out,name),{recursive:true});
 }else{
- await writeFile(resolve(out,'README.md'),`# Suja Dock Status\n\nStandalone frontend for docks 16–19, sharing accounts, roles, messages, and themes with [Suja Life Tools](https://github.com/Sujalife/SujaLifeTools).\n\n**Firebase web app configuration is included; live backend activation remains pending.** Open Explore demo for explicitly labeled browser-only sample data.\n\nThe authoritative shared backend, rules, setup instructions, and tests are in SujaLifeTools. This export never deploys a separate backend.\n\nSet Settings → Pages → Source → GitHub Actions to publish the frontend. The workflow verifies assets and JavaScript syntax. Deployment does not activate Firebase.\n\nThe supplied public Firebase config is included in dist/shared/config.js. Authentication, backend functions, rules, and the Master account still require activation in the authoritative hub project. Both repository paths on sujalife.github.io share Firebase authentication persistence.\n\nBuilt with native-generated art and the existing Suja light/dark palette.\n`);
- const pkg=JSON.parse(await readFile(resolve(out,'package.json'),'utf8'));pkg.name='suja-dock-status';pkg.scripts.test='node --check dist/shared/platform.js';await writeFile(resolve(out,'package.json'),JSON.stringify(pkg,null,2)+'\n');
+ await writeFile(resolve(out,'README.md'),`# Suja Dock Status\n\nStandalone frontend for docks 16–19, sharing accounts, roles, messages, and themes with [Suja Life Tools](https://github.com/Sujalife/SujaLifeTools).\n\nThis version uses **direct Firebase Authentication and Realtime Database access protected by rules**. Core operation requires no Cloud Functions deployment or Blaze upgrade. Firebase's service limits still apply.\n\nThe supplied public Firebase configuration is included. **Live activation still requires the matching version 2 rules and the owner UID at toolsV2/config/masterUid.** The authoritative rules, setup instructions, and tests are maintained in [SujaLifeTools](https://github.com/Sujalife/SujaLifeTools/blob/main/SETUP.md). This export does not deploy a separate backend or maintain a second rules copy.\n\nUse Create account to make a pending identity and copy its UID. Only a Firebase project administrator can pin Master in the Console; the first visitor never becomes Master automatically. The Master approves other accounts and assigns roles. Both repository paths on sujalife.github.io share Firebase authentication persistence.\n\nThe dock board and hub support icon/card and list views. The interface shows the last 72 hours of history and messages; authorized open apps clean up expired entries while active. Physical deletion is not guaranteed while every browser is closed, and current dock status is retained.\n\nChoose Explore demo for labeled browser-only sample data. Demo updates never write to Firebase.\n\nSet Settings → Pages → Source → GitHub Actions to publish the frontend. Pages publication does not publish Firebase rules.\n\nShared source changes belong in SujaLifeTools and should be exported to this repository together. Native-generated artwork and the existing Suja light/dark palette are preserved.\n`);
+ await rm(resolve(out,'scripts/rules.mjs'),{force:true});
+ const pkg=JSON.parse(await readFile(resolve(out,'package.json'),'utf8'));pkg.name='suja-dock-status';pkg.scripts.test='node --check dist/shared/platform.js';delete pkg.scripts['test:rules'];delete pkg.devDependencies;await writeFile(resolve(out,'package.json'),JSON.stringify(pkg,null,2)+'\n');
+ await writeFile(resolve(out,'.github/workflows/pages.yml'),`name: Publish site
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: $\u007b{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test && npm run check && npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
+`);
+
  let entry=await readFile(resolve(out,'dist/dock/index.html'),'utf8');entry=entry.replaceAll('../assets/','./assets/').replaceAll('../shared/','./shared/');await writeFile(resolve(out,'dist/index.html'),entry);
 }
 const host='https://sujalife.github.io';

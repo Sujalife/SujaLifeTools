@@ -2,20 +2,335 @@
   "rules": {
     ".read": false,
     ".write": false,
-    "toolsV1": {
-      "profiles": {
-        "$uid": { ".read": "auth != null && auth.uid === $uid" }
+    "toolsV2": {
+      "config": {
+        ".read": "auth != null && auth.token.firebase.sign_in_provider === 'password'",
+        ".write": false
       },
-      "roles": { ".read": "auth != null && root.child('toolsV1/profiles').child(auth.uid).child('active').val() === true" },
-      "directory": { ".read": "auth != null && root.child('toolsV1/profiles').child(auth.uid).child('active').val() === true" },
-      "docks": {
-        "$dock": {
-          "current": { ".read": "auth != null && root.child('toolsV1/profiles').child(auth.uid).child('active').val() === true" },
-          "history": { ".indexOn": ["createdAt", "expiresAt"] }
+      "profiles": {
+        "$uid": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === $uid",
+          ".write": "(newData.exists()) && (((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || (auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === $uid && !data.exists() && newData.child('active').val() === false && newData.child('roleId').val() === 'viewer')))",
+          ".validate": "(newData.hasChildren([\"uid\",\"displayName\",\"roleId\",\"active\",\"createdAt\"])) && ((newData.child('uid').val() === newData.parent().parent().child('directory').child($uid).child('uid').val() && newData.child('displayName').val() === newData.parent().parent().child('directory').child($uid).child('displayName').val() && newData.child('roleId').val() === newData.parent().parent().child('directory').child($uid).child('roleId').val() && newData.child('active').val() === newData.parent().parent().child('directory').child($uid).child('active').val() && newData.child('createdAt').val() === newData.parent().parent().child('directory').child($uid).child('createdAt').val()) && (($uid === root.child('toolsV2').child('config/masterUid').val() ? newData.child('roleId').val() === 'master' && newData.child('active').val() === true : newData.child('roleId').val() !== 'master')) && ((newData.child('active').val() === false && newData.child('roleId').val() === 'viewer') || newData.parent().parent().child('roles').child(newData.child('roleId').val()).exists()))",
+          "uid": {
+            ".validate": "newData.isString() && newData.val() === $uid && $uid.matches(/^[-A-Za-z0-9_]{1,128}$/)"
+          },
+          "displayName": {
+            ".validate": "(newData.isString() && newData.val().length >= 2 && newData.val().length <= 48) && (!data.exists() || newData.val() === data.val())"
+          },
+          "roleId": {
+            ".validate": "(newData.isString() && newData.val().length >= 2 && newData.val().length <= 40) && (newData.val().matches(/^[a-z][a-z0-9_]{1,39}$/))"
+          },
+          "active": {
+            ".validate": "newData.isBoolean()"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber() && ((!data.exists() && newData.val() === now) || (data.exists() && newData.val() === data.val()))"
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       },
-      "messages": { ".indexOn": ["createdAt", "expiresAt"] },
-      "inboxVersion": { ".read": "auth != null && root.child('toolsV1/profiles').child(auth.uid).child('active').val() === true" }
+      "directory": {
+        ".read": "(auth != null && auth.token.firebase.sign_in_provider === 'password' && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true))",
+        "$uid": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === $uid",
+          ".write": "(newData.exists()) && (((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || (auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === $uid && !data.exists() && newData.child('active').val() === false && newData.child('roleId').val() === 'viewer')))",
+          ".validate": "(newData.hasChildren([\"uid\",\"displayName\",\"roleId\",\"active\",\"createdAt\"])) && ((newData.child('uid').val() === newData.parent().parent().child('profiles').child($uid).child('uid').val() && newData.child('displayName').val() === newData.parent().parent().child('profiles').child($uid).child('displayName').val() && newData.child('roleId').val() === newData.parent().parent().child('profiles').child($uid).child('roleId').val() && newData.child('active').val() === newData.parent().parent().child('profiles').child($uid).child('active').val() && newData.child('createdAt').val() === newData.parent().parent().child('profiles').child($uid).child('createdAt').val()) && (($uid === root.child('toolsV2').child('config/masterUid').val() ? newData.child('roleId').val() === 'master' && newData.child('active').val() === true : newData.child('roleId').val() !== 'master')) && ((newData.child('active').val() === false && newData.child('roleId').val() === 'viewer') || newData.parent().parent().child('roles').child(newData.child('roleId').val()).exists()))",
+          "uid": {
+            ".validate": "newData.isString() && newData.val() === $uid && $uid.matches(/^[-A-Za-z0-9_]{1,128}$/)"
+          },
+          "displayName": {
+            ".validate": "(newData.isString() && newData.val().length >= 2 && newData.val().length <= 48) && (!data.exists() || newData.val() === data.val())"
+          },
+          "roleId": {
+            ".validate": "(newData.isString() && newData.val().length >= 2 && newData.val().length <= 40) && (newData.val().matches(/^[a-z][a-z0-9_]{1,39}$/))"
+          },
+          "active": {
+            ".validate": "newData.isBoolean()"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber() && ((!data.exists() && newData.val() === now) || (data.exists() && newData.val() === data.val()))"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
+      "roles": {
+        ".read": "(auth != null && auth.token.firebase.sign_in_provider === 'password' && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true))",
+        "$role": {
+          ".write": "((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val())) && (newData.exists())",
+          ".validate": "(newData.hasChildren([\"id\",\"name\",\"permissions\"])) && ($role !== 'master' || (newData.child('name').val() === 'Master' && newData.child('permissions/dockUpdate').val() === true && newData.child('permissions/messageSend').val() === true))",
+          "id": {
+            ".validate": "newData.isString() && newData.val() === $role && $role.matches(/^[a-z][a-z0-9_]{1,39}$/)"
+          },
+          "name": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40"
+          },
+          "permissions": {
+            ".validate": "newData.hasChildren(['dockUpdate','messageSend'])",
+            "dockUpdate": {
+              ".validate": "newData.isBoolean()"
+            },
+            "messageSend": {
+              ".validate": "newData.isBoolean()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
+      "docks": {
+        "$dock": {
+          ".validate": "($dock === '16' || $dock === '17' || $dock === '18' || $dock === '19') && newData.hasChild('current')",
+          "current": {
+            ".read": "(auth != null && auth.token.firebase.sign_in_provider === 'password' && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true))",
+            ".write": "(((auth != null && auth.token.firebase.sign_in_provider === 'password' && root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true) && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('roles').child(root.child('toolsV2').child('profiles').child(auth.uid).child('roleId').val()).child('permissions/dockUpdate').val() === true))) && (newData.exists())",
+            ".validate": "(newData.hasChildren([\"dockId\",\"status\",\"trailerId\",\"lockedConfirmed\",\"revision\",\"updatedAt\",\"updatedBy\",\"updatedByName\",\"updatedByRole\",\"auditId\"])) && ((newData.child('revision').val() === (data.exists() ? data.child('revision').val() + 1 : 1)) && (newData.child('lockedConfirmed').val() === (newData.child('status').val() === 'ready')) && (newData.child('status').val() !== 'no_trailer' || newData.child('trailerId').val() === '') && (!data.parent().child('history').child(newData.child('auditId').val()).exists()) && (!data.exists() || newData.child('auditId').val() !== data.child('auditId').val()) && (newData.parent().child('history').child(newData.child('auditId').val()).child('id').val() === newData.child('auditId').val()) && (newData.parent().child('history').child(newData.child('auditId').val()).child('dockId').val() === $dock) && (newData.parent().child('history').child(newData.child('auditId').val()).child('status').val() === newData.child('status').val()) && (newData.parent().child('history').child(newData.child('auditId').val()).child('trailerId').val() === newData.child('trailerId').val()) && (newData.parent().child('history').child(newData.child('auditId').val()).child('lockedConfirmed').val() === newData.child('lockedConfirmed').val()) && (newData.parent().child('history').child(newData.child('auditId').val()).child('revision').val() === newData.child('revision').val()) && (newData.parent().child('history').child(newData.child('auditId').val()).child('createdAt').val() === now) && (newData.parent().child('history').child(newData.child('auditId').val()).child('actorUid').val() === newData.child('updatedBy').val()) && (newData.parent().child('history').child(newData.child('auditId').val()).child('actorName').val() === newData.child('updatedByName').val()) && (newData.parent().child('history').child(newData.child('auditId').val()).child('actorRole').val() === newData.child('updatedByRole').val()))",
+            "dockId": {
+              ".validate": "newData.isString() && newData.val() === $dock"
+            },
+            "status": {
+              ".validate": "newData.isString() && (newData.val() === 'no_trailer' || newData.val() === 'empty' || newData.val() === 'loading' || newData.val() === 'ready')"
+            },
+            "trailerId": {
+              ".validate": "newData.isString() && newData.val().length >= 0 && newData.val().length <= 40"
+            },
+            "lockedConfirmed": {
+              ".validate": "newData.isBoolean()"
+            },
+            "revision": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1"
+            },
+            "updatedAt": {
+              ".validate": "newData.isNumber() && newData.val() === now"
+            },
+            "updatedBy": {
+              ".validate": "newData.isString() && newData.val() === auth.uid"
+            },
+            "updatedByName": {
+              ".validate": "newData.isString() && newData.val() === root.child('toolsV2').child('profiles').child(auth.uid).child('displayName').val()"
+            },
+            "updatedByRole": {
+              ".validate": "newData.isString() && newData.val() === root.child('toolsV2').child('roles').child(root.child('toolsV2').child('profiles').child(auth.uid).child('roleId').val()).child('name').val()"
+            },
+            "auditId": {
+              ".validate": "newData.isString() && newData.val().matches(/^[-A-Za-z0-9_]{1,128}$/)"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "history": {
+            ".read": "(auth != null && auth.token.firebase.sign_in_provider === 'password' && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true))",
+            ".indexOn": [
+              "createdAt"
+            ],
+            "$event": {
+              ".write": "((((auth != null && auth.token.firebase.sign_in_provider === 'password' && root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true) && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('roles').child(root.child('toolsV2').child('profiles').child(auth.uid).child('roleId').val()).child('permissions/dockUpdate').val() === true)) && !data.exists() && newData.exists()) || ((auth != null && auth.token.firebase.sign_in_provider === 'password' && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true)) && data.exists() && !newData.exists() && data.child('createdAt').isNumber() && data.child('createdAt').val() <= now - 259200000))",
+              ".validate": "(newData.hasChildren([\"id\",\"dockId\",\"fromStatus\",\"status\",\"trailerId\",\"previousTrailerId\",\"note\",\"lockedConfirmed\",\"createdAt\",\"actorUid\",\"actorName\",\"actorRole\",\"revision\"])) && (((newData.child('actorUid').val() === auth.uid) && (newData.child('actorName').val() === root.child('toolsV2').child('profiles').child(auth.uid).child('displayName').val()) && (newData.child('actorRole').val() === root.child('toolsV2').child('roles').child(root.child('toolsV2').child('profiles').child(auth.uid).child('roleId').val()).child('name').val())) && (newData.parent().parent().child('current').child('auditId').val() === $event) && (newData.parent().parent().child('current').child('revision').val() === newData.child('revision').val()) && (newData.parent().parent().child('current').child('status').val() === newData.child('status').val()) && (newData.parent().parent().child('current').child('trailerId').val() === newData.child('trailerId').val()) && (newData.parent().parent().child('current').child('lockedConfirmed').val() === newData.child('lockedConfirmed').val()) && (newData.parent().parent().child('current').child('updatedAt').val() === now) && (newData.parent().parent().child('current').child('updatedBy').val() === auth.uid) && (newData.child('fromStatus').val() === (data.parent().parent().child('current').exists() ? data.parent().parent().child('current').child('status').val() : 'unconfirmed')) && (newData.child('previousTrailerId').val() === (data.parent().parent().child('current').exists() ? data.parent().parent().child('current').child('trailerId').val() : '')) && ((newData.child('fromStatus').val() !== 'ready' || newData.child('status').val() !== 'loading' || newData.child('note').val().length > 0)) && ((newData.child('fromStatus').val() !== newData.child('status').val() || newData.child('previousTrailerId').val() !== newData.child('trailerId').val() || newData.child('note').val().length > 0)) && (newData.child('lockedConfirmed').val() === (newData.child('status').val() === 'ready')) && (newData.child('status').val() !== 'no_trailer' || newData.child('trailerId').val() === ''))",
+              "id": {
+                ".validate": "newData.isString() && newData.val() === $event && $event.matches(/^[-A-Za-z0-9_]{1,128}$/)"
+              },
+              "dockId": {
+                ".validate": "newData.isString() && newData.val() === $dock"
+              },
+              "fromStatus": {
+                ".validate": "newData.isString() && (newData.val() === 'unconfirmed' || newData.val() === 'no_trailer' || newData.val() === 'empty' || newData.val() === 'loading' || newData.val() === 'ready')"
+              },
+              "status": {
+                ".validate": "newData.isString() && (newData.val() === 'no_trailer' || newData.val() === 'empty' || newData.val() === 'loading' || newData.val() === 'ready')"
+              },
+              "trailerId": {
+                ".validate": "newData.isString() && newData.val().length >= 0 && newData.val().length <= 40"
+              },
+              "previousTrailerId": {
+                ".validate": "newData.isString() && newData.val().length >= 0 && newData.val().length <= 40"
+              },
+              "note": {
+                ".validate": "newData.isString() && newData.val().length >= 0 && newData.val().length <= 500"
+              },
+              "lockedConfirmed": {
+                ".validate": "newData.isBoolean()"
+              },
+              "createdAt": {
+                ".validate": "newData.isNumber() && newData.val() === now"
+              },
+              "actorUid": {
+                ".validate": "newData.isString() && newData.val() === auth.uid"
+              },
+              "actorName": {
+                ".validate": "newData.isString() && newData.val() === root.child('toolsV2').child('profiles').child(auth.uid).child('displayName').val()"
+              },
+              "actorRole": {
+                ".validate": "newData.isString() && newData.val() === root.child('toolsV2').child('roles').child(root.child('toolsV2').child('profiles').child(auth.uid).child('roleId').val()).child('name').val()"
+              },
+              "revision": {
+                ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      },
+      "messages": {
+        "team": {
+          ".read": "(auth != null && auth.token.firebase.sign_in_provider === 'password' && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true))",
+          ".indexOn": [
+            "createdAt"
+          ],
+          "$message": {
+            ".write": "((((auth != null && auth.token.firebase.sign_in_provider === 'password' && root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true) && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('roles').child(root.child('toolsV2').child('profiles').child(auth.uid).child('roleId').val()).child('permissions/messageSend').val() === true)) && !data.exists() && newData.exists()) || ((auth != null && auth.token.firebase.sign_in_provider === 'password' && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true)) && data.exists() && !newData.exists() && data.child('createdAt').isNumber() && data.child('createdAt').val() <= now - 259200000))",
+            ".validate": "(newData.hasChildren([\"id\",\"body\",\"audienceType\",\"audienceId\",\"senderUid\",\"senderName\",\"senderRole\",\"createdAt\",\"system\"]))",
+            "id": {
+              ".validate": "newData.isString() && newData.val() === $message && $message.matches(/^[-A-Za-z0-9_]{1,128}$/)"
+            },
+            "body": {
+              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 1500"
+            },
+            "audienceType": {
+              ".validate": "newData.val() === 'team'"
+            },
+            "audienceId": {
+              ".validate": "newData.isString() && newData.val() === 'team'"
+            },
+            "senderUid": {
+              ".validate": "newData.isString() && newData.val() === auth.uid"
+            },
+            "senderName": {
+              ".validate": "newData.isString() && newData.val() === root.child('toolsV2').child('profiles').child(auth.uid).child('displayName').val()"
+            },
+            "senderRole": {
+              ".validate": "newData.isString() && newData.val() === root.child('toolsV2').child('roles').child(root.child('toolsV2').child('profiles').child(auth.uid).child('roleId').val()).child('name').val()"
+            },
+            "createdAt": {
+              ".validate": "newData.isNumber() && newData.val() === now"
+            },
+            "system": {
+              ".validate": "newData.val() === false"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "roles": {
+          "$role": {
+            ".read": "((auth != null && auth.token.firebase.sign_in_provider === 'password' && root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true)) && (root.child('toolsV2').child('profiles').child(auth.uid).child('roleId').val() === $role)",
+            ".indexOn": [
+              "createdAt"
+            ],
+            "$message": {
+              ".write": "((((auth != null && auth.token.firebase.sign_in_provider === 'password' && root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true) && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('roles').child(root.child('toolsV2').child('profiles').child(auth.uid).child('roleId').val()).child('permissions/messageSend').val() === true)) && !data.exists() && newData.exists()) || ((auth != null && auth.token.firebase.sign_in_provider === 'password' && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true)) && data.exists() && !newData.exists() && data.child('createdAt').isNumber() && data.child('createdAt').val() <= now - 259200000))",
+              ".validate": "(newData.hasChildren([\"id\",\"body\",\"audienceType\",\"audienceId\",\"senderUid\",\"senderName\",\"senderRole\",\"createdAt\",\"system\"])) && (root.child('toolsV2').child('roles').child($role).exists())",
+              "id": {
+                ".validate": "newData.isString() && newData.val() === $message && $message.matches(/^[-A-Za-z0-9_]{1,128}$/)"
+              },
+              "body": {
+                ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 1500"
+              },
+              "audienceType": {
+                ".validate": "newData.val() === 'role'"
+              },
+              "audienceId": {
+                ".validate": "newData.isString() && newData.val() === $role"
+              },
+              "senderUid": {
+                ".validate": "newData.isString() && newData.val() === auth.uid"
+              },
+              "senderName": {
+                ".validate": "newData.isString() && newData.val() === root.child('toolsV2').child('profiles').child(auth.uid).child('displayName').val()"
+              },
+              "senderRole": {
+                ".validate": "newData.isString() && newData.val() === root.child('toolsV2').child('roles').child(root.child('toolsV2').child('profiles').child(auth.uid).child('roleId').val()).child('name').val()"
+              },
+              "createdAt": {
+                ".validate": "newData.isNumber() && newData.val() === now"
+              },
+              "system": {
+                ".validate": "newData.val() === false"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        },
+        "users": {
+          "$recipient": {
+            ".read": "((auth != null && auth.token.firebase.sign_in_provider === 'password' && root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true)) && (auth.uid === $recipient)",
+            ".indexOn": [
+              "createdAt"
+            ],
+            "$message": {
+              ".write": "((((auth != null && auth.token.firebase.sign_in_provider === 'password' && root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true) && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('roles').child(root.child('toolsV2').child('profiles').child(auth.uid).child('roleId').val()).child('permissions/messageSend').val() === true)) && !data.exists() && newData.exists()) || ((auth != null && auth.token.firebase.sign_in_provider === 'password' && ((auth != null && auth.token.firebase.sign_in_provider === 'password' && auth.uid === root.child('toolsV2').child('config/masterUid').val()) || root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true)) && data.exists() && !newData.exists() && data.child('createdAt').isNumber() && data.child('createdAt').val() <= now - 259200000))",
+              ".validate": "(newData.hasChildren([\"id\",\"body\",\"audienceType\",\"audienceId\",\"senderUid\",\"senderName\",\"senderRole\",\"createdAt\",\"system\"])) && (root.child('toolsV2').child('profiles').child($recipient).child('active').val() === true)",
+              "id": {
+                ".validate": "newData.isString() && newData.val() === $message && $message.matches(/^[-A-Za-z0-9_]{1,128}$/)"
+              },
+              "body": {
+                ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 1500"
+              },
+              "audienceType": {
+                ".validate": "newData.val() === 'user'"
+              },
+              "audienceId": {
+                ".validate": "newData.isString() && newData.val() === $recipient"
+              },
+              "senderUid": {
+                ".validate": "newData.isString() && newData.val() === auth.uid"
+              },
+              "senderName": {
+                ".validate": "newData.isString() && newData.val() === root.child('toolsV2').child('profiles').child(auth.uid).child('displayName').val()"
+              },
+              "senderRole": {
+                ".validate": "newData.isString() && newData.val() === root.child('toolsV2').child('roles').child(root.child('toolsV2').child('profiles').child(auth.uid).child('roleId').val()).child('name').val()"
+              },
+              "createdAt": {
+                ".validate": "newData.isNumber() && newData.val() === now"
+              },
+              "system": {
+                ".validate": "newData.val() === false"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        }
+      },
+      "readReceipts": {
+        "$uid": {
+          ".read": "((auth != null && auth.token.firebase.sign_in_provider === 'password' && root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true)) && (auth.uid === $uid)",
+          ".indexOn": [
+            "createdAt"
+          ],
+          "$message": {
+            ".write": "((auth != null && auth.token.firebase.sign_in_provider === 'password' && root.child('toolsV2').child('profiles').child(auth.uid).child('active').val() === true)) && (auth.uid === $uid) && ($message.matches(/^[-A-Za-z0-9_]{1,180}$/)) && (newData.exists() || (data.exists() && data.child('createdAt').isNumber() && data.child('createdAt').val() <= now - 259200000))",
+            ".validate": "(newData.hasChildren([\"createdAt\",\"readAt\"]))",
+            "createdAt": {
+              ".validate": "newData.isNumber() && newData.val() <= now && newData.val() > now - 259200000 && (!data.exists() || newData.val() === data.val())"
+            },
+            "readAt": {
+              ".validate": "newData.isNumber() && newData.val() === now"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      }
     }
   }
 }

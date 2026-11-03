@@ -1,66 +1,96 @@
-# Suja Life Tools — live Firebase setup
+# Suja Life Tools — direct Firebase setup
 
-The interface and clearly labeled browser demo can be reviewed before Firebase is connected. No production dock statuses have been created. Live docks remain **Unconfirmed** until an authorized teammate records their first update.
+This version uses **Firebase Authentication and Realtime Database directly from the browser**, protected by database rules. It requires no Cloud Functions deployment, scheduled server, Cloudflare account, or Blaze upgrade for its core features. Firebase's usage limits still apply.
 
-## Required project information
-
-The supplied public Firebase web app configuration has been added to both frontends, including the API key, app ID, and database URL:
+The frontend configuration is already included for project **`suja-life-tools`** and database:
 
 `https://suja-life-tools-default-rtdb.firebaseio.com`
 
-The public `firebaseConfig` supplied for the Web app is now included in both apps' `dist/shared/config.js`. The optional analytics measurement ID is retained as configuration; Analytics collection is not initialized. This configuration identifies the project but does not grant administrative access or prove that Authentication, backend functions, rules, or the scheduler are activated. Never commit a service-account key, account password, or private key.
+The optional analytics measurement ID is retained in configuration, but Analytics collection is not initialized. Public configuration identifies the project; it does not grant administrator access. Never share or commit a password, private key, or service-account credential.
 
-The project ID is expected to be `suja-life-tools`; verify it against Project settings before deployment.
+## 1. Confirm Authentication
 
-## Enable authenticated accounts
+The owner reports already enabling **Email/Password** and **Anonymous** under Firebase Authentication. The apps use **Email/Password**; they do not use anonymous login for workplace identity.
 
-1. Open **Authentication → Sign-in method** and enable **Email/Password**. There is no email-address input in the apps: the display name is normalized, lowercased, and SHA-256 hashed into an internal synthetic login address.
-2. Add the deployed app hostname to **Authentication → Settings → Authorized domains** when required. Keep the hub and tool on the same origin for seamless shared login. The two repositories on `sujalife.github.io` share an origin even with different project paths. Different hostnames have separate browser sessions.
-3. Display names must be unique without regard to capitalization or extra spaces. They contain 2–48 characters. Passphrases may include spaces, letters, and numbers and must contain 8–128 characters.
-4. Only the configured Master can provision team profiles. Unprovisioned Firebase identities have no application access. The app has no public registration screen.
+- Check **Authentication → Sign-in method → Email/Password** if sign-in reports that the provider is disabled.
+- Add `sujalife.github.io` to authorized domains when required. Add the private review site's hostname separately if it will be used for live access.
+- Keep the hub and tool on the same origin for seamless sign-in. Both GitHub Pages paths share `sujalife.github.io`.
 
-## Bootstrap the single Master account
+Users enter a **display name**, not an email address. The app normalizes the name, lowercases it, and hashes it into an internal synthetic email address for Firebase Authentication. Names are unique without regard to capitalization or extra spaces. Names contain 2–48 characters; passphrases contain 8–128 characters and may include letters, numbers, and spaces.
 
-The first person who visits never becomes Master automatically.
+## 2. Publish the matching rules
 
-1. Decide the initial Master display name, for example `Sean`.
-2. In a trusted terminal, run `node scripts/login-address.mjs Sean`. This prints the **public synthetic login address**, not a password.
-3. In **Firebase Authentication → Users → Add user**, create the Master account using that synthetic email and your chosen private passphrase. Do not publish or send the passphrase.
-4. Copy that account's Firebase **UID**. Set the Cloud Functions parameter `SUJA_MASTER_UID` to that UID during deployment. The UID is an identifier, not a credential.
-5. Sign into the app with the display name `Sean` and the private passphrase. The callable `bootstrapMaster` verifies that this signed-in UID exactly matches `SUJA_MASTER_UID` and that its synthetic email matches the display name, then creates the protected Master profile and default roles. No other account can bootstrap.
-6. Use the Master account panel to create teammates and assign their roles.
+Use **`database.rules.json` from this version**, or its identical downloadable text copy. The earlier version 1 rules were written for the Functions prototype and do not enable this direct model.
 
-The Master cannot be reassigned or disabled through the app. To transfer ownership, use a deliberate administrator migration and change the configured UID. Password recovery does not send email to synthetic addresses; a project administrator can reset credentials through Firebase Authentication. A future Master reset flow can be added if needed.
+1. In Firebase Console, select project **suja-life-tools**.
+2. Open **Realtime Database → Rules** for the database above.
+3. Replace the rules with the complete version 2 file and choose **Publish**.
 
-## Deploy trusted server operations and rules
-
-Cloud Functions and the scheduled cleanup require a Firebase **Blaze billing project** and its Google Cloud APIs. Review the project's billing settings before deploying.
-
-From the repository that owns the backend:
+Alternatively, an authenticated project administrator can publish the same source with the Firebase CLI:
 
 ```sh
-cd functions
-npm install
-cd ..
-npx firebase-tools login
-npx firebase-tools deploy --project suja-life-tools --only functions,database
+npx firebase-tools deploy --project suja-life-tools --only database
 ```
 
-The CLI prompts for `SUJA_MASTER_UID` if no local parameter value exists. Keep any CLI-generated `.env.<project>` files untracked. Never commit a service-account credential. Deploy this shared backend from **one authoritative repository**; both apps call the same functions.
+If the rules generator is changed, run `node scripts/rules.mjs` and test the generated file before publishing. GitHub Pages deployment is not evidence that these rules are live. Keep the rules in Firebase Console and this repository synchronized.
 
-The Realtime Database rules deny all browser writes. Reads require an active provisioned profile. Dock history and messages are available only through authenticated server functions, which enforce role/audience access and the 72-hour expiration. Anonymous, inactive, and unprovisioned accounts cannot view operational data.
+## 3. Create the owner's account and pin Master
 
-Each dock update runs a transaction that atomically records its current state and audit event. It requires the revision the user actually reviewed. Audit names, roles, timestamps, and expiration are supplied by the server. UI clients cannot impersonate another actor or overwrite an audit record.
+The first public visitor never becomes Master automatically.
 
-Default roles: Master, Supervisor, Lead, Forklift Driver, NetSuite Operator, Viewer. Supervisor, Lead, Forklift Driver, and NetSuite Operator may update docks and send messages. Viewer may read. Only Master creates accounts and roles. The Master can create further named roles with either operational permission.
+1. Open [Suja Life Tools](https://sujalife.github.io/SujaLifeTools/), choose **Sign in**, then **Create account**.
+2. Enter the desired display name, for example **Sean**, and choose a private passphrase. Keep that passphrase private.
+3. The app creates a pending account and displays its Firebase **UID**. Copy the UID. The same UID is also visible in **Firebase Console → Authentication → Users**.
+4. In **Realtime Database → Data**, create the following path and set its string value to that exact UID:
 
-## Retention and notifications
+   ```text
+   toolsV2/config/masterUid = YOUR_FIREBASE_AUTH_UID
+   ```
 
-Dock history and messages use a rolling **72-hour window**. Server reads exclude expired entries at the exact 72-hour boundary. The scheduled job physically removes expired history, messages, and read receipts every five minutes; dock updates also prune expired history for that dock. The latest current status stays available until replaced, even when its last update is older than 72 hours.
+   In the Console's JSON tree, this means `toolsV2` contains `config`, which contains the string field `masterUid`. Do not replace the entire database with this one field.
 
-Every dock audit event is also presented as a team notification in the Message Center. These notifications are derived from the same committed transaction, so an update cannot succeed while losing its associated notification. Manual messages support the team, an assigned role, or one teammate. Message timestamps and sender identity are assigned on the server. No external email, SMS, or push notifications are sent.
+5. The open app watches that setting. Once it matches the signed-in UID, the app initializes the Master profile and default roles. Signing out and in again can also reload setup if needed.
+6. Use **Team** to create teammates, approve pending accounts, and assign their roles.
 
-## Shared adapter API
+Only a Firebase project administrator can set or change `toolsV2/config/masterUid`: all application-client writes to this path are denied. Knowing a display name or visiting first cannot claim Master. To transfer ownership, use a deliberate project-administrator migration and keep account/profile rules consistent.
+
+If an account was already created with the internal synthetic address for its display name, sign in with that same name and passphrase rather than creating it again. An unrelated Auth email address does not map automatically to a display-name login. The helper `node scripts/login-address.mjs Sean` prints the internal address when a Console-created account is needed; it never prints a password.
+
+## 4. Add the team
+
+Default roles are **Master**, **Supervisor**, **Lead**, **Forklift Driver**, **NetSuite Operator**, and **Viewer**. The operational roles can update docks and send messages. Viewer can read operational data. Only the pinned Master administers accounts and roles.
+
+A person may create an account in the app, but the initial profile is inactive/pending with no operational access. The Master approves access and assigns a role in **Team**. The Master may also create a teammate directly. A separate, memory-only Auth client creates that identity so the Master's signed-in session stays intact; profile and directory records are then written together with the Master's authorized session.
+
+Custom roles can contain the operational permissions **Update dock status** and **Send team messages**. Master administration cannot be granted through a custom role. Disabling membership revokes the person's application data access through rules. It does not delete the Auth identity or reset the password. Those Auth administration actions remain Firebase Console tasks. Synthetic addresses do not receive password-recovery emails.
+
+## Realtime records and audit
+
+The shared namespace is **`toolsV2`**. Its `profiles` and `directory` records mirror `{uid, displayName, roleId, active, createdAt}`. The Master pin is separate under `config/masterUid`. Roles store operational permissions as a map with `dockUpdate` and `messageSend` keys; the adapter exposes the existing UI permission names.
+
+Each dock update writes current status and an audit event in one atomic multi-location update. The current record links its `auditId` to that event. Rules validate the next revision, matching current/audit fields, the signed-in actor and assigned role, server timestamp, status, and physical lock confirmation when marking ready. An old form cannot overwrite a newer revision. Existing audit events cannot be rewritten; expired history may be removed by authorized maintenance.
+
+Statuses are `no_trailer`, `empty`, `loading`, and `ready`. No current record means **Unconfirmed**. Trailer number is optional. Reopening a locked/ready trailer to loading requires a note. No live production status is seeded from the demo.
+
+Manual messages are stored in separate team, role, and personal channels, with rules restricting channel access. The inbox subscribes to the current person's permitted channels. Dock notices are derived from committed audit events. Personal read receipts belong to the signed-in user. There is no global read that exposes other people's private channels, and no external email, SMS, or push notification is sent.
+
+## Retention
+
+The interface shows history and messages created within the last **72 hours**. An authorized open app removes expired records shortly after opening and approximately every minute while it is active. Old records may remain physically stored until an authorized app runs again if all browsers are closed. This is the deliberate tradeoff for avoiding a scheduled server.
+
+The latest current dock status stays available until changed, even if its last update is older than 72 hours. Do not delete current status as part of history cleanup.
+
+## Existing prototype data
+
+This version uses `toolsV2` so it does not overwrite or automatically migrate any stored `toolsV1` prototype data. The replacement rules leave the old namespace inaccessible to clients. If prior production data exists, a project administrator should review and deliberately migrate it before team rollout. No previous Functions deployment is needed for the new model.
+
+## Verification
+
+Run the project's unit/adapter tests, syntax checks, static build, and database rules emulator integration checks before publishing a source change. The important rules cases include inactive users, Master pin protection, role escalation, stale revisions, separate current/audit writes, actor/time forgery, immutable audit records, lock confirmation, expired cleanup, and channel privacy.
+
+Before workplace use, publish the matching rules and verify the real project with two different accounts: confirm an authorized user sees a dock update, a Viewer cannot update, a pending user cannot view operational data, role/personal messages stay within their channels, and the Master can approve or disable access. Source preparation and local test results do not prove that live rules were published.
+
+## Shared adapter
 
 ```js
 import { createPlatform, hasPermission } from './shared/platform.js';
@@ -68,22 +98,13 @@ const platform = await createPlatform(firebaseConfig);
 const unsubscribe = platform.subscribe(state => { /* render */ });
 ```
 
-Use `createPlatform(firebaseConfig, {demo:true})` only after an explicit **Explore demo** action. Demo data is local to that browser and marked `mode: 'demo'`; it is never uploaded. No passphrase is stored in demo data.
+Methods include `createAccount(displayName, passphrase)`, `login`, `logout`, `updateDock`, `getDockHistory`, `sendMessage`, `markRead`, `createUser`, `saveRole`, `assignRole`, `getSnapshot`, and `destroy`.
 
-Methods: `login(displayName,passphrase)`, `logout()`, `updateDock({dockId,status,trailerId,note,expectedRevision,lockedConfirmed})`, `getDockHistory(dockId)`, `sendMessage({body,audienceType,audienceId})`, `markRead(messageId)`, `createUser({displayName,passphrase,roleId})`, `saveRole({id,name,permissions})`, `assignRole({uid,roleId,active})`, `getSnapshot()`, `destroy()`.
+The snapshot exposes `account` for a signed-in pending/setup identity, including its UID; `user` is present only after application access is active. Existing `docks`, `history`, `messages`, `users`, and `roles` collections keep the UI's shared shape. Demo mode is an explicit **Explore demo** choice, stays local to that browser, and never stores a passphrase.
 
-Snapshot collections: `docks` keyed by dock number; `history` keyed by dock number with newest-first event arrays; `messages` array; `users` keyed by UID; `roles` keyed by role ID. `user` has `uid`, `displayName`, `roleId`, `roleName`, `permissions`, and `active`. Status values are `no_trailer`, `empty`, `loading`, `ready`; an absent live dock record means **Unconfirmed**. The trailer number is optional. A `ready` update requires `lockedConfirmed: true` to record that the trailer is physically locked and ready for pickup. Reopening it to loading requires a reason.
+## Primary Firebase references
 
-## Verification performed and remaining
-
-Run `node --test tests/*.test.mjs` for the domain and adapter tests. They cover audit integrity, role permissions, revisions, retention boundaries, message audiences, protected role administration, demo isolation, and identical username hashing between browser and backend. `node --check functions/index.mjs` validates server syntax.
-
-These are local tests, not a claim that the backend, Authentication provider, scheduler, or security rules have been deployed. Before team use, deploy and verify with two separate active accounts, confirm a Viewer cannot update, check history and role-directed messages, and run Firebase Emulator Suite rules/callable integration tests.
-
-## Primary Firebase documentation
-
-- [Callable Functions](https://firebase.google.com/docs/functions/callable)
-- [Admin user creation](https://firebase.google.com/docs/auth/admin/manage-users)
-- [Parameterized configuration](https://firebase.google.com/docs/functions/config-env)
-- [Realtime Database rules](https://firebase.google.com/docs/database/security/rules-conditions)
-- [Scheduled Functions](https://firebase.google.com/docs/functions/schedule-functions)
+- [Password authentication](https://firebase.google.com/docs/auth/web/password-auth)
+- [Direct reads, writes, and atomic updates](https://firebase.google.com/docs/database/web/read-and-write)
+- [Realtime Database rule conditions](https://firebase.google.com/docs/database/security/rules-conditions)
+- [Multiple Firebase app instances](https://firebase.google.com/docs/projects/multiprojects)
