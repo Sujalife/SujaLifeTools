@@ -70,7 +70,7 @@ The shared namespace is **`toolsV2`**. Its `profiles` and `directory` records mi
 
 Each dock update writes current status and an audit event in one atomic multi-location update. The current record links its `auditId` to that event. Rules validate the next revision, matching current/audit fields, the signed-in actor and assigned role, server timestamp, status, and physical lock confirmation when marking ready. An old form cannot overwrite a newer revision. Existing audit events cannot be rewritten; expired history may be removed by authorized maintenance.
 
-Statuses are `no_trailer`, `empty`, `loading`, and `ready`. No current record means **Unconfirmed**. Trailer number is optional. Reopening a locked/ready trailer to loading requires a note. No live production status is seeded from the demo.
+Statuses are `no_trailer`, `empty`, `loading`, and `ready`. No current record means **Unconfirmed**. Trailer number is optional. Reopening a locked/ready trailer to loading requires a note. The apps do not seed production statuses.
 
 Manual messages are stored in separate team, role, and personal channels, with rules restricting channel access. The inbox subscribes to the current person's permitted channels. Dock notices are derived from committed audit events. Personal read receipts belong to the signed-in user. There is no global read that exposes other people's private channels, and no external email, SMS, or push notification is sent.
 
@@ -100,7 +100,7 @@ const unsubscribe = platform.subscribe(state => { /* render */ });
 
 Methods include `createAccount(displayName, passphrase)`, `login`, `logout`, `updateDock`, `getDockHistory`, `sendMessage`, `markRead`, `createUser`, `saveRole`, `assignRole`, `getSnapshot`, and `destroy`.
 
-The snapshot exposes `account` for a signed-in pending/setup identity, including its UID; `user` is present only after application access is active. Existing `docks`, `history`, `messages`, `users`, and `roles` collections keep the UI's shared shape. Demo mode is an explicit **Explore demo** choice, stays local to that browser, and never stores a passphrase.
+The snapshot exposes `account` for a signed-in pending/setup identity, including its UID; `user` is present only after application access is active. Existing `docks`, `history`, `messages`, `users`, and `roles` collections keep the UI's shared shape. Both apps open the live workspace only. Old sample-session flags and sample records are cleared from browser storage without changing Firebase Auth sessions, themes, or view preferences.
 
 ## Primary Firebase references
 

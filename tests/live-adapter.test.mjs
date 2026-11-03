@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {createPlatform} from '../dist/shared/platform.js';
 
 globalThis.window={addEventListener(){},removeEventListener(){}};
-globalThis.localStorage={getItem(){return null;},setItem(){}};
+const storage=new Map();
+globalThis.localStorage={getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)};
 const config={apiKey:'public-test-config',projectId:'demo-suja-life-tools',appId:'test-app'};
 const settle=async()=>{for(let i=0;i<5;i++)await new Promise(resolve=>setImmediate(resolve));};
 
@@ -84,4 +85,26 @@ test('Console-pinned Master bootstraps an existing pending profile without repla
   assert.equal(mock.data.toolsV2.profiles.master.createdAt,123456);assert.equal(mock.data.toolsV2.directory.master.createdAt,123456);
   assert.equal(mock.data.toolsV2.profiles.master.active,true);assert.equal(mock.data.toolsV2.roles.forklift_driver.permissions.dockUpdate,true);
  }finally{platform.destroy();}
+});
+
+
+test('legacy sample workspace state cannot bypass live authentication and retires only its own storage',async()=>{
+ storage.clear();
+ storage.set('sujaToolsExploreDemo','1');
+ storage.set('suja-life-tools.demo.v1',JSON.stringify({version:1,userId:'demo-sean',users:{'demo-sean':{uid:'demo-sean',displayName:'Sean',roleId:'master',active:true}},docks:{'16':{status:'ready',trailerId:'SAMPLE-1'}},messages:[{body:'Sample message'}]}));
+ storage.set('sujaTheme','dark');
+ storage.set('sujaToolsViewMode','compact');
+ const authCacheKey='firebase:authUser:public-test-config:suja-life-tools';storage.set(authCacheKey,'existing-auth-cache');
+ const mock=fakeSdk({signedIn:false}),platform=await createPlatform(config,{sdk:mock.sdk,demo:true});
+ try{
+  await settle();const state=platform.getSnapshot();
+  assert.equal(state.mode,'live');assert.equal(state.user,null);assert.equal(state.account,null);
+  assert.deepEqual(state.docks,{});assert.deepEqual(state.users,{});assert.deepEqual(state.messages,[]);
+  assert.ok(Object.values(state.history).every(events=>events.length===0));
+  assert.equal(mock.mainAuth.currentUser,null);assert.equal(mock.signupCount,0);
+  await assert.rejects(platform.updateDock({dockId:'16',status:'ready',expectedRevision:0,lockedConfirmed:true}),/waiting for activation/);
+  await assert.rejects(platform.login('Sean','sample-passphrase'),/did not match/);
+  assert.equal(storage.has('sujaToolsExploreDemo'),false);assert.equal(storage.has('suja-life-tools.demo.v1'),false);
+  assert.equal(storage.get('sujaTheme'),'dark');assert.equal(storage.get('sujaToolsViewMode'),'compact');assert.equal(storage.get(authCacheKey),'existing-auth-cache');
+ }finally{platform.destroy();storage.clear();}
 });

@@ -30,7 +30,7 @@
   "note": "Version 2 source prepared for direct browser access. Website publication does not prove live rules publication. Existing toolsV1 data is left untouched and is not automatically migrated. The Functions-based version 1 rules do not activate this model.",
   "sourceSha256": "34eb49b7cbdf790f1ecec1f7691d0f8b442ba4b4989b1dd75dccc3a52875bd33",
   "validation": {
-    "unitAndAdapterTests": 13,
+    "unitAndAdapterTests": 10,
     "rulesEmulatorTests": 17,
     "liveProjectVerified": false
   }

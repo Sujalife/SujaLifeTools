@@ -29,7 +29,7 @@ The supplied public Firebase configuration is included in both builds. Live use 
 
 The owner can create an account in the app and copy the displayed UID. Creating an account does not grant Master automatically. The pinned UID initializes the Master profile and starter roles; all other new accounts remain pending until approved. The user reports enabling Email/Password and Anonymous providers; these apps use **Email/Password only**.
 
-Choose **Explore demo** for labeled browser-only sample data. Demo changes never write to Firebase, and live docks start unconfirmed until a teammate records their first update. Analytics is not initialized. No passphrase, admin key, or service-account credential belongs in this repository.
+Both apps always use the live Firebase workspace. Previously saved sample sessions are retired automatically. Docks start unconfirmed until a teammate records their first update. Analytics is not initialized. No passphrase, admin key, or service-account credential belongs in this repository.
 
 ## Retention
 
